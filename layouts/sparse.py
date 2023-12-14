@@ -70,11 +70,14 @@ def get_parser(layout_name):
                       help="swap month colors for even/odd years")
     parser.add_option("--fractal", action="store_true", default=False,
                       help=optparse.SUPPRESS_HELP)
+    parser.add_option("--iso-week", action="store_true", default=False,
+                  help="show ISO week number (starts on Monday)")
+    
     return parser
 
 parser = get_parser(__name__)
 
-def _draw_day_cell(cr, rect, day, header, footer, theme, show_day_name, text_height=None):
+def _draw_day_cell(cr, rect, day, header, footer, theme, show_day_name, iso_week, text_height=None):
     ds,G,L = theme
     year, month, day_of_month, day_of_week = day
     draw_box(cr, rect, ds.bg, ds.bg, mm_to_dots(ds.frame_thickness))
@@ -117,9 +120,9 @@ def _draw_day_cell(cr, rect, day, header, footer, theme, show_day_name, text_hei
             scaling = -1, stroke_rgba = ds.fg, align = (0,valign),
             font = ds.font, measure = "Mo")
         # week number
-        if day_of_week == 0 or (day_of_month == 1 and month == 1):
-          week_nr = date(year, month, day_of_month).isocalendar()[1]
-          draw_str(cr, text = "%s%d" % (L.week_of_year_prefix, week_nr), rect = Rmiddle_top,
+        if iso_week and (day_of_week == 0 or (day_of_month == 1 and month == 1)):
+            week_nr = date(year, month, day_of_month).isocalendar()[1]
+            draw_str(cr, text = "%s%d" % (L.week_of_year_prefix, week_nr), rect = Rmiddle_top,
               scaling = -1, stroke_rgba = ds.fg, align = (0,valign),
               font = ds.header_font, measure = "%s88" % (L.week_of_year_prefix,))
 
@@ -166,7 +169,8 @@ class CalendarRenderer(_base.CalendarRenderer):
             _draw_day_cell(cr, rect = R, day = (year, month, dom, day),
                           header = header, footer = footer,
                           theme = (day_style, G.dom, L), show_day_name = True,
-                          text_height = text_height)
+                          iso_week = self.options.iso_week,
+                          text_height = text_height)                          
 
             day = (day + 1) % 7
 
@@ -179,6 +183,8 @@ class CalendarRenderer(_base.CalendarRenderer):
         if S.month.text_shadow:
             f = S.month.text_shadow_size
             mshad = (f,-f) if G.landscape else (f,f)
-        draw_str(cr, text = L.month_name[month], rect = R_text, scaling = -1, stroke_rgba = mcolor_fg,
+        title_str = L.month_name[month]
+        if self.options.month_with_year: title_str += ' ' + str(year)
+        draw_str(cr, text = title_str, rect = R_text, scaling = -1, stroke_rgba = mcolor_fg,
                  align = (2,0), font = S.month.font, measure = mmeasure, shadow = mshad)
         cr.restore()
