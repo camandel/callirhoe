@@ -394,3 +394,36 @@ def draw_str(cr, text, rect, scaling = -1, stroke_rgba = None, align = (2,0), bb
         draw_box(cr, (x, y, w, h), stroke_rgba)
         #draw_box(cr, (x, y+h, mw*crs[0], -mh*crs[1]), stroke_rgba)
         draw_box(cr, (px, py, tw, -th), stroke_rgba)
+
+
+def draw_moon(cr, rect, phase):
+    """draw moon phases
+
+    @param cr: cairo context
+    @param rect: tuple (x,y,w,h)
+    @param phase: string
+    """
+    x, y, w, h = rect
+    posx = x + w - 6.0
+    posy = y + h + 18.0
+    radius = 5.0
+
+    cr.set_source_rgb(0, 0, 0)
+
+    if phase == "full moon" or phase == "new moon":
+        cr.move_to(posx + radius, posy)
+        cr.arc(posx,posy, radius, 0, 2 * math.pi)
+        if phase == "new moon":
+            cr.fill() # new moon (black)
+        else:
+            cr.stroke() # full moon (white)
+    else:
+        cr.move_to(posx , posy)
+        if phase == "last quarter moon":
+            # last quarter of moon
+            cr.arc(posx, posy, radius, math.pi / 2, 3 * math.pi / 2)
+        else:
+            # first quarter of moon
+            cr.arc(posx, posy, radius, 3 * math.pi / 2, math.pi / 2)
+        cr.line_to(posx, posy)
+        cr.stroke()

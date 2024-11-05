@@ -24,7 +24,7 @@ from lib.xcairo import *
 from lib.geom import *
 import calendar
 import optparse
-import sys
+import ephem
 from datetime import date, timedelta
 
 from . import _base
@@ -72,6 +72,8 @@ def get_parser(layout_name):
                       help=optparse.SUPPRESS_HELP)
     parser.add_option("--iso-week", action="store_true", default=False,
                   help="show ISO week number (starts on Monday)")
+    parser.add_option("--moons", action="store_true", default=False,
+                  help="show moon phases")
     
     return parser
 
@@ -131,9 +133,13 @@ def _draw_day_cell(cr, rect, day, header, footer, theme, show_day_name, iso_week
           stroke_rgba = ds.header, align = (1,1), font = ds.header_font,
           measure='MgMgMgMgMgMgMgMgMg')
     if footer:
-        draw_str(cr, text = footer, rect = Rright_footer, scaling = -1,
-            stroke_rgba = ds.footer, align = (1,1), font = ds.header_font,
-            measure='MgMgMgMgMgMgMgMgMg')
+        if any(p in footer for p in ["new moon", "first quater moon", "full moon", "last quarter moon"]):
+            x, y, w, h = rect
+            draw_moon(cr, (x, y, w, 0), footer)
+        else:
+            draw_str(cr, text = footer, rect = Rright_footer, scaling = -1,
+              stroke_rgba = ds.footer, align = (1,1), font = ds.header_font,
+              measure='MgMgMgMgMgMgMgMgMg')
 
 class CalendarRenderer(_base.CalendarRenderer):
     """sparse layout class"""
@@ -159,13 +165,20 @@ class CalendarRenderer(_base.CalendarRenderer):
             shad = (f,-f) if G.landscape else (f,f)
             draw_shadow(cr, rect_from_origin(rect), shad)
 
+        # load moon phases
+        moon_days = self._calculate_moon(year, month)
+
         # draw day cells
         for dom in range(1,span+1):
             R = dom_grid.item(dom-1)
             holiday_tuple = self.holiday_provider(year, month, dom, day)
             day_style = holiday_tuple[2]
             header = holiday_tuple[0]
-            footer = holiday_tuple[1]
+            # if "--moons" is set it will override holiday footer
+            if self.options.moons:
+                footer = moon_days.get(dom,"")
+            else:
+                footer = holiday_tuple[1]
             _draw_day_cell(cr, rect = R, day = (year, month, dom, day),
                           header = header, footer = footer,
                           theme = (day_style, G.dom, L), show_day_name = True,
@@ -188,3 +201,12 @@ class CalendarRenderer(_base.CalendarRenderer):
         draw_str(cr, text = title_str, rect = R_text, scaling = -1, stroke_rgba = mcolor_fg,
                  align = (2,0), font = S.month.font, measure = mmeasure, shadow = mshad)
         cr.restore()
+
+    def _calculate_moon(self, year, month):
+        # return dict day -> phase
+        d = f"{year}/{month}"
+        nm = ephem.localtime(ephem.next_new_moon(d))
+        fq = ephem.localtime(ephem.next_first_quarter_moon(d))
+        fm = ephem.localtime(ephem.next_full_moon(d))
+        lq = ephem.localtime(ephem.next_last_quarter_moon(d))
+        return {nm.day: "new moon", fq.day: "first quater moon", fm.day: "full moon", lq.day: "last quarter moon"}
